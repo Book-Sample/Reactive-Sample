@@ -1,5 +1,6 @@
 package com.mcivicm.reactive.operator;
 
+import io.reactivex.CompletableObserver;
 import io.reactivex.MaybeObserver;
 import io.reactivex.Observer;
 import io.reactivex.SingleObserver;
@@ -99,6 +100,24 @@ public abstract class BaseOperators {
         @Override
         public void onComplete() {
             println("onComplete");
+        }
+    }
+
+    class PrintCompletable implements CompletableObserver {
+
+        @Override
+        public void onSubscribe(@NonNull Disposable d) {
+            println("onSubscribe");
+        }
+
+        @Override
+        public void onComplete() {
+            println("onComplete");
+        }
+
+        @Override
+        public void onError(@NonNull Throwable e) {
+            println("onError:" + e.getMessage());
         }
     }
 }
