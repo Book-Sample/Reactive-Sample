@@ -243,11 +243,12 @@ public class FilteringOperators extends BaseOperators {
     public void takeLast() throws Exception {
         println("skipLast count:");
         Observable.range(0, 10)
-                .takeLast(5)
+                .takeLast(3)
                 .subscribe(new PrintObserver());
         println("skipLast time:");
         CountDownLatch latch = new CountDownLatch(1);
-        Observable.intervalRange(0, 10, 1, 1, TimeUnit.SECONDS)
+        //和skipLast的行为不同，skipLast是每秒一次，而takeLast是一次性发出来（由于take是一秒一次，所以应该是takeLast的bug）
+        Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
                     public Long apply(@NonNull Long aLong) throws Exception {
@@ -255,7 +256,7 @@ public class FilteringOperators extends BaseOperators {
                         return aLong;
                     }
                 })
-                .takeLast(5, TimeUnit.SECONDS)
+                .takeLast(8, TimeUnit.SECONDS)
                 .subscribe(new PrintObserver() {
                     @Override
                     public void onComplete() {
