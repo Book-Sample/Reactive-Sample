@@ -2,7 +2,9 @@ package com.mcivicm.reactive.operator;
 
 import org.junit.Test;
 
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -94,7 +96,7 @@ public class CombiningOperators extends BaseOperators {
             public ObservableSource<String> apply(@NonNull String s) throws Exception {
                 println("right:" + s);
                 return Observable.just(s)
-                        .delay(3, TimeUnit.SECONDS)//定义时间窗的间隔为0s，即数据项会被立即发送，时间窗关闭，数据项不再有效（不可组合的）
+                        //定义时间窗的间隔为0s，即数据项会被立即发送，时间窗关闭，数据项不再有效（不可组合的）
                         .doOnSubscribe(new Consumer<Disposable>() {
                             @Override
                             public void accept(@NonNull Disposable disposable) throws Exception {
@@ -149,7 +151,7 @@ public class CombiningOperators extends BaseOperators {
             public ObservableSource<String> apply(@NonNull String s) throws Exception {
                 println("left:" + s);
                 return Observable.just(s)
-                        .delay(10, TimeUnit.SECONDS)
+                        .delay(1, TimeUnit.SECONDS)
                         .doOnSubscribe(new Consumer<Disposable>() {
                             @Override
                             public void accept(@NonNull Disposable disposable) throws Exception {
@@ -208,13 +210,264 @@ public class CombiningOperators extends BaseOperators {
         }, new BiFunction<String, Observable<String>, String>() {
             @Override
             public String apply(@NonNull String s, @NonNull Observable<String> stringObservable) throws Exception {
-                println("group:" + s);
-                return stringObservable.blockingFirst("default");
+                println("combine function: " + s);
+                return s + stringObservable.blockingSingle("default");
             }
         }).subscribe(new SimpleObserver() {
             @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                latch.countDown();
+            }
+
+            @Override
             public void onComplete() {
                 super.onComplete();
+                latch.countDown();
+            }
+        });
+        latch.await();
+    }
+
+    @Test
+    public void merge() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        Observable.merge(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }), Observable.intervalRange(0, 10, 500, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟500ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        })).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                latch.countDown();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                latch.countDown();
+            }
+        });
+        latch.await();
+    }
+
+    @Test
+    public void mergeDelayError() throws Exception {
+        // without being interrupted by an error notification from one of them
+        CountDownLatch latch = new CountDownLatch(1);
+        Observable.mergeDelayError(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                if (aLong == 5) {
+                    throw new Exception("some exception");
+                }
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }), Observable.intervalRange(0, 10, 500, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟500ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        })).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                latch.countDown();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                latch.countDown();
+            }
+        });
+        latch.await();
+
+    }
+
+    @Test
+    public void mergeOrMergeDelayError() throws Exception {
+        Semaphore semaphore = new Semaphore(0);
+        //有错误信息或立即中断，并传递给Observer
+        Observable.merge(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                if (aLong == 5) {
+                    throw new Exception("强行出错");
+                }
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }), Observable.intervalRange(0, 10, 500, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟500ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        })).doOnSubscribe(new Consumer<Disposable>() {
+            @Override
+            public void accept(@NonNull Disposable disposable) throws Exception {
+                println("merge开始");
+            }
+        }).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                semaphore.release();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                semaphore.release();
+            }
+        });
+        semaphore.acquire();//等待merge执行完
+        //有错误信息只中断错误的Observable，并延迟（等到所有Observable结束发送）传递错误信息给Observer
+        Observable.mergeDelayError(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                if (aLong == 5) {
+                    throw new Exception("强行出错");
+                }
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }), Observable.intervalRange(0, 10, 500, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟500ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        })).doOnSubscribe(new Consumer<Disposable>() {
+            @Override
+            public void accept(@NonNull Disposable disposable) throws Exception {
+                println("***************************************************");
+                println("mergeDelayError开始");
+            }
+        }).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                semaphore.release();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                semaphore.release();
+            }
+        });
+        semaphore.acquire();
+    }
+
+    @Test
+    public void mergeArray() throws Exception {
+        //merge的变体
+    }
+
+    @Test
+    public void mergeArrayDelayError() throws Exception {
+        //mergeDelayError的变体
+    }
+
+    @Test
+    public void mergeWith() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        //mergeWith是个实例方法，可链式merge多个Observable
+        Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }).mergeWith(Observable.intervalRange(0, 10, 300, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟300ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        })).mergeWith(Observable.intervalRange(0, 10, 600, 1000, TimeUnit.MILLISECONDS).map(new Function<Long, String>() {//延迟600ms发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (48 + aLong));//转成数字
+            }
+        })).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                latch.countDown();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                latch.countDown();
+            }
+        });
+        latch.await();
+    }
+
+    @Test
+    public void startWith() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }).doOnSubscribe(new Consumer<Disposable>() {
+            @Override
+            public void accept(@NonNull Disposable disposable) throws Exception {
+                println("doOnSubscribe");
+            }
+        })
+                .startWith("我去前面探探路")//这里有一个bug：没有startWith时，先执行doOnSubscribe再执行onSubscribe（绝大部分Observable都是这样）,有startWith时，先执行onSubscribe再执行doOnSubscribe
+                .subscribe(new PrintObserver() {
+                    @Override
+                    public void onComplete() {
+                        super.onComplete();
+                        latch.countDown();
+                    }
+                });
+        latch.await();
+    }
+
+    @Test
+    public void switchOnNext() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        Observable.switchOnNext(Observable.intervalRange(0, 3, 0, 5, TimeUnit.SECONDS).map(new Function<Long, Observable<String>>() {//每隔五秒产生一个数据源，每个数据源每秒产生一个数据
+            @Override
+            public Observable<String> apply(@NonNull Long aLong) throws Exception {
+                int index = Integer.valueOf(String.valueOf(aLong));
+                return Arrays.asList(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+                    @Override
+                    public String apply(@NonNull Long aLong) throws Exception {
+                        return String.valueOf((char) (97 + aLong));//转成小写字母
+                    }
+                }), Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {//延迟3s发送
+                    @Override
+                    public String apply(@NonNull Long aLong) throws Exception {
+                        return String.valueOf((char) (65 + aLong));//转成大些字母
+                    }
+                }), Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {//延迟6s发送
+                    @Override
+                    public String apply(@NonNull Long aLong) throws Exception {
+                        return String.valueOf((char) (48 + aLong));//转成数字
+                    }
+                })).get(index);
+            }
+        })).subscribe(new PrintObserver() {
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
                 latch.countDown();
             }
         });
