@@ -15,6 +15,7 @@ import io.reactivex.functions.Action;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Consumer;
 import io.reactivex.functions.Function;
+import io.reactivex.functions.Function3;
 
 /**
  * 组合
@@ -151,7 +152,7 @@ public class CombiningOperators extends BaseOperators {
             public ObservableSource<String> apply(@NonNull String s) throws Exception {
                 println("left:" + s);
                 return Observable.just(s)
-                        .delay(1, TimeUnit.SECONDS)
+                        .delay(10, TimeUnit.SECONDS)
                         .doOnSubscribe(new Consumer<Disposable>() {
                             @Override
                             public void accept(@NonNull Disposable disposable) throws Exception {
@@ -211,6 +212,7 @@ public class CombiningOperators extends BaseOperators {
             @Override
             public String apply(@NonNull String s, @NonNull Observable<String> stringObservable) throws Exception {
                 println("combine function: " + s);
+                //如果使用这里stringObservable呢？
                 return s + stringObservable.blockingSingle("default");
             }
         }).subscribe(new SimpleObserver() {
@@ -437,6 +439,7 @@ public class CombiningOperators extends BaseOperators {
     @Test
     public void switchOnNext() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
+        //switchOnNext只显示最新Observable的数据，而不是所有Observable的最新数据
         Observable.switchOnNext(Observable.intervalRange(0, 3, 0, 5, TimeUnit.SECONDS).map(new Function<Long, Observable<String>>() {//每隔五秒产生一个数据源，每个数据源每秒产生一个数据
             @Override
             public Observable<String> apply(@NonNull Long aLong) throws Exception {
@@ -472,5 +475,61 @@ public class CombiningOperators extends BaseOperators {
             }
         });
         latch.await();
+    }
+
+    @Test
+    public void zip() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        //等待最后Observable开始发送才发送，发送数量为所有Obserbable发送量的最小值。
+        Observable.zip(Observable.intervalRange(0, 4, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (97 + aLong));//转成小写字母
+            }
+        }), Observable.intervalRange(0, 6, 3, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {//延迟3s发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (65 + aLong));//转成大些字母
+            }
+        }), Observable.intervalRange(0, 8, 6, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {//延迟6s发送
+            @Override
+            public String apply(@NonNull Long aLong) throws Exception {
+                return String.valueOf((char) (48 + aLong));//转成大些字母
+            }
+        }), new Function3<String, String, String, String>() {
+            @Override
+            public String apply(@NonNull String s, @NonNull String s2, @NonNull String s3) throws Exception {
+                return s + "-" + s2 + "-" + s3;
+            }
+        }).subscribe(new PrintObserver() {
+            @Override
+            public void onError(@NonNull Throwable e) {
+                super.onError(e);
+                latch.countDown();
+            }
+
+            @Override
+            public void onComplete() {
+                super.onComplete();
+                latch.countDown();
+            }
+        });
+        latch.await();
+
+    }
+
+    @Test
+    public void zipWith() throws Exception {
+        //zip的实例方法
+    }
+
+    @Test
+    public void zipIterable() throws Exception {
+        //zip的变体
+    }
+
+    @Test
+    public void zipArray() throws Exception {
+        //zip的变体
     }
 }
