@@ -156,4 +156,24 @@ public class ConditionalBooleanOperators extends BaseOperators {
                 }).blockingSubscribe(new PrintObserver());
 
     }
+
+    @Test
+    public void takeUtil() throws Exception {
+        Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
+                .takeUntil(Observable.timer(5, TimeUnit.SECONDS))
+                .blockingSubscribe(new PrintObserver());
+
+    }
+
+    @Test
+    public void takeWhile() throws Exception {
+        Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
+                .takeWhile(new Predicate<Long>() {
+                    @Override
+                    public boolean test(@NonNull Long aLong) throws Exception {
+                        return aLong < 5;
+                    }
+                })
+                .blockingSubscribe(new PrintObserver());
+    }
 }
