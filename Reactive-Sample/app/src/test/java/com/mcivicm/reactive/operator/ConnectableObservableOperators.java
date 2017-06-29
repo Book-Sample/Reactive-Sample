@@ -227,4 +227,73 @@ public class ConnectableObservableOperators extends BaseOperators {
         observable.blockingSubscribe();
 
     }
+
+    @Test
+    public void replay() throws Exception {
+        /**
+         *返回一个和下游数据源共享一个subscription的可连接数据源,该可连接数据源会重新发送所有的数据项和通知给以后的Observer。
+         * 一个Connectable数据源和普通数据源相似，不同的是，可连接数据源在订阅时不发送数据项，只当connect方法被调用之后才发送。
+         */
+        ConnectableObservable<Long> observable = Observable.intervalRange(0, 30, 0, 1, TimeUnit.SECONDS)
+                .doOnNext(new Consumer<Long>() {
+                    @Override
+                    public void accept(@NonNull Long aLong) throws Exception {
+                        println("publish: " + aLong);
+                    }
+                })
+                .replay();
+        println("start connect: ");
+        observable.connect();
+        println("connected.");
+        println("wait to subscribe...");
+        Thread.sleep(5000);
+        println("subscribe observer A");
+        DisposableObserver A = new DisposableObserver() {
+            @Override
+            public void onNext(@NonNull Object o) {
+                println(String.valueOf(o) + " from observer A");
+            }
+
+            @Override
+            public void onError(@NonNull Throwable e) {
+                println("onError from observer A");
+            }
+
+            @Override
+            public void onComplete() {
+                println("onComplete form observer A");
+            }
+        };
+        observable.subscribe(A);
+        Thread.sleep(5000);
+        println("subscribe observer B: ");
+        DisposableObserver B = new DisposableObserver() {
+            @Override
+            public void onNext(@NonNull Object o) {
+                println(String.valueOf(o) + " from observer B");
+            }
+
+            @Override
+            public void onError(@NonNull Throwable e) {
+                println("onError from observer B");
+            }
+
+            @Override
+            public void onComplete() {
+                println("onComplete form observer B");
+            }
+        };
+        observable.subscribe(B);//重新发送所有数据项给Observer B，[包括]已经发送的数据项（一口气发完）
+        Thread.sleep(5000);
+        println("dispose A:");
+        A.dispose();
+        println("A disposed.");
+        Thread.sleep(5000);
+        println("dispose B");
+        B.dispose();
+        println("B disposed.");
+        Thread.sleep(1000);
+        println("there is no more publish.");
+        Thread.sleep(10000);//wait to finish emitting completely.
+    }
 }
