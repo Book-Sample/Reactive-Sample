@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -104,7 +105,17 @@ public class ConvertOperators extends BaseOperators {
 
     @Test
     public void toSortedList() throws Exception {
-
-
+        Single<List<Integer>> listSingle = Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
+                .map(new Function<Long, Integer>() {
+                    @Override
+                    public Integer apply(@NonNull Long aLong) throws Exception {
+                        int mapped = new Random().nextInt(10);
+                        println("emit: " + mapped);
+                        return mapped;
+                    }
+                })
+                .toSortedList();
+        List<Integer> integerList = listSingle.blockingGet();
+        println("final result: " + String.valueOf(integerList));
     }
 }
