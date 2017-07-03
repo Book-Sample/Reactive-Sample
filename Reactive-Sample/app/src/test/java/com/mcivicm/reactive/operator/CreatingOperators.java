@@ -9,7 +9,6 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
@@ -136,24 +135,14 @@ public class CreatingOperators extends BaseOperators {
 
     @Test
     public void interval() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.interval(1, TimeUnit.SECONDS)
-                .subscribe(new SimpleObserver());
-        latch.await(10, TimeUnit.SECONDS);
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void intervalRange() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
-                .subscribe(new SimpleObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -201,14 +190,6 @@ public class CreatingOperators extends BaseOperators {
 
     @Test
     public void timer() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
-        Observable.timer(10, TimeUnit.SECONDS).subscribe(new SimpleObserver() {
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        Observable.timer(10, TimeUnit.SECONDS).blockingSubscribe(new PrintObserver());
     }
 }

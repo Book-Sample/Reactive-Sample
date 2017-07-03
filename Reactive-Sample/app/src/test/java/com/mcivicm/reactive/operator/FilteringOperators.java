@@ -3,7 +3,6 @@ package com.mcivicm.reactive.operator;
 import org.junit.Test;
 
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.MaybeObserver;
@@ -19,23 +18,9 @@ import io.reactivex.functions.Function;
 public class FilteringOperators extends BaseOperators {
     @Test
     public void debounce() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .debounce(500, TimeUnit.MILLISECONDS)//完全不懂
-                .subscribe(new SimpleObserver() {
-                    @Override
-                    public void onNext(@NonNull Object o) {
-                        super.onNext(o);
-                        println(String.valueOf(o));
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -112,17 +97,9 @@ public class FilteringOperators extends BaseOperators {
 
     @Test
     public void ignoreElements() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .ignoreElements()
-                .subscribe(new PrintCompletable() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingGet();
     }
 
     @Test
@@ -151,7 +128,6 @@ public class FilteringOperators extends BaseOperators {
 
     @Test
     public void sample() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.range(0, 10)
                 .map(new Function<Integer, Integer>() {
                     @Override
@@ -162,14 +138,7 @@ public class FilteringOperators extends BaseOperators {
                     }
                 })//只为睡眠打印
                 .sample(5, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -179,17 +148,9 @@ public class FilteringOperators extends BaseOperators {
                 .skip(5)
                 .subscribe(new PrintObserver());
         println("skip time:");
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .skip(5, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -199,7 +160,6 @@ public class FilteringOperators extends BaseOperators {
                 .skipLast(5)
                 .subscribe(new PrintObserver());
         println("skipLast time:");
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 1, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
@@ -209,14 +169,7 @@ public class FilteringOperators extends BaseOperators {
                     }
                 })
                 .skipLast(5, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -226,17 +179,9 @@ public class FilteringOperators extends BaseOperators {
                 .take(5)
                 .subscribe(new PrintObserver());
         println("take time:");
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .take(5, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -246,7 +191,6 @@ public class FilteringOperators extends BaseOperators {
                 .takeLast(3)
                 .subscribe(new PrintObserver());
         println("skipLast time:");
-        CountDownLatch latch = new CountDownLatch(1);
         //和skipLast的行为不同，skipLast是每秒一次，而takeLast是一次性发出来（由于take是一秒一次，所以应该是takeLast的bug）
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
@@ -257,13 +201,6 @@ public class FilteringOperators extends BaseOperators {
                     }
                 })
                 .takeLast(8, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 }

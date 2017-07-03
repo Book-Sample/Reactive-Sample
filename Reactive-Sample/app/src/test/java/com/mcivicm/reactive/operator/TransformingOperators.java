@@ -4,7 +4,6 @@ import org.junit.Test;
 
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -36,23 +35,15 @@ public class TransformingOperators extends BaseOperators {
 
     @Test
     public void buffer1() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).buffer(3)
-                .subscribe(new SimpleObserver() {
+                .blockingSubscribe(new SimpleObserver() {
                     @Override
                     public void onNext(@NonNull Object o) {
                         super.onNext(o);
                         if (o instanceof List)
                             println("收到足够的数据才发射，不是边收边发：" + String.valueOf(((List) o).size()));
                     }
-
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
                 });
-        latch.await();
     }
 
     @Test
@@ -188,10 +179,9 @@ public class TransformingOperators extends BaseOperators {
 
     @Test
     public void window() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .window(3)
-                .subscribe(new Observer<Observable<Long>>() {
+                .blockingSubscribe(new Observer<Observable<Long>>() {
                     @Override
                     public void onSubscribe(@NonNull Disposable d) {
                         println("onSubscribe");
@@ -230,9 +220,7 @@ public class TransformingOperators extends BaseOperators {
                     @Override
                     public void onComplete() {
                         println("onComplete");
-                        latch.countDown();
                     }
                 });
-        latch.await();
     }
 }

@@ -3,7 +3,6 @@ package com.mcivicm.reactive.operator;
 import org.junit.Test;
 
 import java.util.Random;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -22,7 +21,6 @@ public class ErrorHandlingOperators extends BaseOperators {
     /***************The [catch] part********************/
     @Test
     public void onErrorResumeNext() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
@@ -52,25 +50,11 @@ public class ErrorHandlingOperators extends BaseOperators {
                                 });
                     }
                 })
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void onExceptionResumeNext() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
@@ -83,26 +67,11 @@ public class ErrorHandlingOperators extends BaseOperators {
                 })
                 //不处理Throwable和Error实例,源Observable会继续进行
                 .onExceptionResumeNext(Observable.just(Long.MAX_VALUE))
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-                });
-        latch.await();
-
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void onErrorReturn() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
@@ -122,25 +91,11 @@ public class ErrorHandlingOperators extends BaseOperators {
                         return Long.MAX_VALUE;
                     }
                 })
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void onErrorReturnItem() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Long>() {
                     @Override
@@ -153,26 +108,12 @@ public class ErrorHandlingOperators extends BaseOperators {
                 })
                 //onErrorReturn的缺省形式
                 .onErrorReturnItem(Long.MAX_VALUE)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     /**************************the [retry] part******************************/
     @Test
     public void retry() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .map(new Function<Long, Integer>() {
                     @Override
@@ -198,20 +139,7 @@ public class ErrorHandlingOperators extends BaseOperators {
                         return true;//just for printing
                     }
                 })
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -221,7 +149,6 @@ public class ErrorHandlingOperators extends BaseOperators {
 
     @Test
     public void retryWhen() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS)
                 .doOnSubscribe(new Consumer<Disposable>() {
                     @Override
@@ -272,19 +199,6 @@ public class ErrorHandlingOperators extends BaseOperators {
                         });
                     }
                 })
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onError(@NonNull Throwable e) {
-                        super.onError(e);
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 }

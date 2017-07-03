@@ -7,7 +7,6 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Notification;
@@ -29,7 +28,6 @@ import io.reactivex.schedulers.Timed;
 public class UtilityOperators extends BaseOperators {
     @Test
     public void delay() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.rangeLong(0, 10)
                 .doOnSubscribe(new Consumer<Disposable>() {
                     @Override
@@ -43,18 +41,11 @@ public class UtilityOperators extends BaseOperators {
                         return Observable.timer(integer, TimeUnit.SECONDS);//timer just emit a complete() notification. (view notification as an item)
                     }
                 })
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void delaySubscription() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.rangeLong(0, 10)
                 .doOnSubscribe(new Consumer<Disposable>() {
                     @Override
@@ -63,14 +54,7 @@ public class UtilityOperators extends BaseOperators {
                     }
                 })
                 .delaySubscription(5, TimeUnit.SECONDS)
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -130,11 +114,10 @@ public class UtilityOperators extends BaseOperators {
     @Test
     public void observeOn() throws Exception {
         //观察者线程切换
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.just(1)
                 .subscribeOn(Schedulers.trampoline())
                 .observeOn(Schedulers.newThread())
-                .subscribe(new PrintObserver() {
+                .blockingSubscribe(new PrintObserver() {
                     @Override
                     public void onSubscribe(@NonNull Disposable d) {
                         println("onSubscribe: " + Thread.currentThread().getName());
@@ -142,11 +125,9 @@ public class UtilityOperators extends BaseOperators {
 
                     @Override
                     public void onComplete() {
-                        latch.countDown();
                         println("onComplete: " + Thread.currentThread().getName());
                     }
                 });
-        latch.await();
     }
 
     @Test

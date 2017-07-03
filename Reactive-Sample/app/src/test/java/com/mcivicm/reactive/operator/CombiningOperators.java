@@ -3,8 +3,6 @@ package com.mcivicm.reactive.operator;
 import org.junit.Test;
 
 import java.util.Arrays;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 import io.reactivex.Observable;
@@ -24,7 +22,7 @@ import io.reactivex.functions.Function3;
 public class CombiningOperators extends BaseOperators {
     @Test
     public void combineLatest() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
+
         Observable<String> o1 = Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(aLong -> String.valueOf((char) (aLong + 97)));
         //延迟500毫秒发送
         Observable<String> o2 = Observable.intervalRange(0, 10, 500, 1000, TimeUnit.MILLISECONDS).map(aLong -> String.valueOf((char) (aLong + 65)));
@@ -34,14 +32,7 @@ public class CombiningOperators extends BaseOperators {
             public String apply(@NonNull String s, @NonNull String s2) throws Exception {
                 return s2 + s;
             }
-        }).subscribe(new PrintObserver() {
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        }).blockingSubscribe(new PrintObserver());
     }
 
     /**
@@ -55,7 +46,6 @@ public class CombiningOperators extends BaseOperators {
 
     @Test
     public void join() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         //左Observable,每秒产生一个数据
         Observable<String> o1 = Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(aLong -> String.valueOf((char) (aLong + 97)));
         //右Observable,延迟500毫秒发送,每秒产生一个数据
@@ -129,19 +119,16 @@ public class CombiningOperators extends BaseOperators {
                 println("left-right:" + s + "-" + s2);
                 return s2 + s;
             }
-        }).subscribe(new PrintObserver() {
+        }).blockingSubscribe(new PrintObserver() {
             @Override
             public void onComplete() {
                 println("所有Observable的生命周期到头才结束");
-                latch.countDown();
             }
         });
-        latch.await();
     }
 
     @Test
     public void groupJoin() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         //左Observable,每秒产生一个数据
         Observable<String> o1 = Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(aLong -> String.valueOf((char) (aLong + 97)));
         //右Observable,延迟500毫秒发送,每秒产生一个数据
@@ -215,25 +202,11 @@ public class CombiningOperators extends BaseOperators {
                 //如果使用这里stringObservable呢？
                 return s + stringObservable.blockingSingle("default");
             }
-        }).subscribe(new SimpleObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        }).subscribe(new PrintObserver());
     }
 
     @Test
     public void merge() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.merge(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
             public String apply(@NonNull Long aLong) throws Exception {
@@ -244,26 +217,12 @@ public class CombiningOperators extends BaseOperators {
             public String apply(@NonNull Long aLong) throws Exception {
                 return String.valueOf((char) (65 + aLong));//转成大些字母
             }
-        })).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        })).blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void mergeDelayError() throws Exception {
         // without being interrupted by an error notification from one of them
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.mergeDelayError(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
             public String apply(@NonNull Long aLong) throws Exception {
@@ -277,26 +236,12 @@ public class CombiningOperators extends BaseOperators {
             public String apply(@NonNull Long aLong) throws Exception {
                 return String.valueOf((char) (65 + aLong));//转成大些字母
             }
-        })).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        })).blockingSubscribe(new PrintObserver());
 
     }
 
     @Test
     public void mergeOrMergeDelayError() throws Exception {
-        Semaphore semaphore = new Semaphore(0);
         //有错误信息或立即中断，并传递给Observer
         Observable.merge(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
@@ -316,20 +261,7 @@ public class CombiningOperators extends BaseOperators {
             public void accept(@NonNull Disposable disposable) throws Exception {
                 println("merge开始");
             }
-        }).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                semaphore.release();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                semaphore.release();
-            }
-        });
-        semaphore.acquire();//等待merge执行完
+        }).blockingSubscribe(new PrintObserver());
         //有错误信息只中断错误的Observable，并延迟（等到所有Observable结束发送）传递错误信息给Observer
         Observable.mergeDelayError(Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
@@ -350,20 +282,7 @@ public class CombiningOperators extends BaseOperators {
                 println("***************************************************");
                 println("mergeDelayError开始");
             }
-        }).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                semaphore.release();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                semaphore.release();
-            }
-        });
-        semaphore.acquire();
+        }).blockingSubscribe(new PrintObserver());
     }
 
     @Test
@@ -378,7 +297,6 @@ public class CombiningOperators extends BaseOperators {
 
     @Test
     public void mergeWith() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         //mergeWith是个实例方法，可链式merge多个Observable
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
@@ -395,25 +313,11 @@ public class CombiningOperators extends BaseOperators {
             public String apply(@NonNull Long aLong) throws Exception {
                 return String.valueOf((char) (48 + aLong));//转成数字
             }
-        })).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        })).blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void startWith() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         Observable.intervalRange(0, 10, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
             public String apply(@NonNull Long aLong) throws Exception {
@@ -426,19 +330,11 @@ public class CombiningOperators extends BaseOperators {
             }
         })
                 .startWith("我去前面探探路")//这里有一个bug：没有startWith时，先执行doOnSubscribe再执行onSubscribe（绝大部分Observable都是这样）,有startWith时，先执行onSubscribe再执行doOnSubscribe
-                .subscribe(new PrintObserver() {
-                    @Override
-                    public void onComplete() {
-                        super.onComplete();
-                        latch.countDown();
-                    }
-                });
-        latch.await();
+                .blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void switchOnNext() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         //switchOnNext只显示最新Observable的数据，而不是所有Observable的最新数据
         Observable.switchOnNext(Observable.intervalRange(0, 3, 0, 5, TimeUnit.SECONDS).map(new Function<Long, Observable<String>>() {//每隔五秒产生一个数据源，每个数据源每秒产生一个数据
             @Override
@@ -461,25 +357,11 @@ public class CombiningOperators extends BaseOperators {
                     }
                 })).get(index);
             }
-        })).subscribe(new PrintObserver() {
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-        });
-        latch.await();
+        })).blockingSubscribe(new PrintObserver());
     }
 
     @Test
     public void zip() throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
         //等待最后Observable开始发送才发送，发送数量为所有Obserbable发送量的最小值。
         Observable.zip(Observable.intervalRange(0, 4, 0, 1, TimeUnit.SECONDS).map(new Function<Long, String>() {
             @Override
@@ -501,20 +383,7 @@ public class CombiningOperators extends BaseOperators {
             public String apply(@NonNull String s, @NonNull String s2, @NonNull String s3) throws Exception {
                 return s + "-" + s2 + "-" + s3;
             }
-        }).subscribe(new PrintObserver() {
-            @Override
-            public void onError(@NonNull Throwable e) {
-                super.onError(e);
-                latch.countDown();
-            }
-
-            @Override
-            public void onComplete() {
-                super.onComplete();
-                latch.countDown();
-            }
-        });
-        latch.await();
+        }).blockingSubscribe(new PrintObserver());
 
     }
 
